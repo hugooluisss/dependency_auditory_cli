@@ -9,6 +9,7 @@ import (
 	ecosystemcomposer "github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem/composer"
 	ecosystemgomod "github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem/gomod"
 	ecosystemnpm "github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem/npm"
+	ecosystempython "github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem/python"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/infra/filesystem"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/output"
 	"github.com/spf13/cobra"
@@ -62,6 +63,7 @@ func newRegistry() *ecosystem.Registry {
 		ecosystemcomposer.NewScanner(reader),
 		ecosystemnpm.NewScanner(reader),
 		ecosystemgomod.NewScanner(reader),
+		ecosystempython.NewScanner(reader),
 	)
 }
 

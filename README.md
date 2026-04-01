@@ -1,6 +1,6 @@
 # depguard
 
-`depguard` is a Go CLI focused on AI-consumable dependency metadata for dependency ecosystems such as Composer, npm and Go Modules.
+`depguard` is a Go CLI focused on AI-consumable dependency metadata for dependency ecosystems such as Composer, npm, Go Modules and Python.
 
 ## Design goals
 
@@ -17,13 +17,14 @@ Current ecosystem support:
 - PHP Composer (`composer.json`, `composer.lock`)
 - npm / Node.js (`package.json`, `package-lock.json`, `npm-shrinkwrap.json`)
 - Go Modules (`go.mod`, `go.sum`)
+- Python (`requirements.txt`, `requirements-dev.txt`, `poetry.lock`, `Pipfile.lock`, `requirements.lock`)
 
 Not included yet:
 
 - OSV or external vulnerability APIs
 - Reputation scoring
 - SARIF output
-- Additional ecosystems (pip and others)
+- Additional ecosystems (Java/.NET/Ruby and others)
 
 Included now:
 
@@ -95,6 +96,26 @@ Example for Go Modules:
     "manifests": {
       "go.mod": true,
       "go.sum": true
+    }
+  },
+  "error": null
+}
+```
+
+Example for Python:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "project_path": ".",
+    "ecosystem": "python",
+    "manifests": {
+      "requirements.txt": true,
+      "requirements-dev.txt": true,
+      "poetry.lock": false,
+      "Pipfile.lock": false,
+      "requirements.lock": true
     }
   },
   "error": null
@@ -206,6 +227,19 @@ Go Modules lockfile error example:
 }
 ```
 
+Python lockfile error example:
+
+```json
+{
+  "ok": false,
+  "data": null,
+  "error": {
+    "code": "LOCKFILE_NOT_FOUND",
+    "message": "poetry.lock, Pipfile.lock, or requirements.lock file was not found"
+  }
+}
+```
+
 ### Run local risk scan (offline)
 
 ```bash
@@ -214,12 +248,13 @@ Go Modules lockfile error example:
 
 What this command checks in the current MVP:
 
-- Missing lockfile (`composer.lock`, `package-lock.json`, or `npm-shrinkwrap.json` depending on ecosystem)
+- Missing lockfile (`composer.lock`, `package-lock.json`, `npm-shrinkwrap.json`, `go.sum`, `poetry.lock`, `Pipfile.lock`, or `requirements.lock` depending on ecosystem)
 - Unsafe version constraints (`*`, `latest`, `@dev`, `dev-master`)
 - Development branch or non-registry constraints
 - Risky script command patterns
 - Missing lock metadata (`license`, `source/dist reference` or `resolved/integrity`)
 - Go `replace` directives to local/remote non-registry targets
+- Python requirements without constraints or referencing remote direct sources
 
 Example JSON output:
 
@@ -302,6 +337,8 @@ internal/
       scanner.go       ← npm implementation (Angular/React/Node)
     gomod/
       scanner.go       ← Go Modules implementation
+    python/
+      scanner.go       ← Python implementation (requirements/poetry/pipfile)
   parser/
     composer_json_parser.go
     composer_lock_parser.go
@@ -309,6 +346,8 @@ internal/
     package_lock_parser.go
     go_mod_parser.go
     go_sum_parser.go
+    requirements_parser.go
+    python_lock_parser.go
   infra/
     filesystem/
       reader.go
