@@ -5,6 +5,9 @@ import (
 	"os"
 
 	"github.com/hugooluisss/dependency_auditory_cli/internal/domain"
+	"github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem"
+	ecosystemcomposer "github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem/composer"
+	"github.com/hugooluisss/dependency_auditory_cli/internal/infra/filesystem"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -44,6 +47,20 @@ func init() {
 	rootCmd.AddCommand(newDepsCommand())
 	rootCmd.AddCommand(newAuditCommand())
 	rootCmd.AddCommand(newVersionCommand())
+}
+
+// newRegistry is the single registration point for ecosystem scanners.
+// To add support for a new ecosystem, add its scanner here:
+//
+//	npm.NewScanner(reader)
+//	gomod.NewScanner(reader)
+func newRegistry() *ecosystem.Registry {
+	reader := filesystem.NewReader()
+	return ecosystem.NewRegistry(
+		ecosystemcomposer.NewScanner(reader),
+		// npm.NewScanner(reader),   // future
+		// gomod.NewScanner(reader), // future
+	)
 }
 
 func writeSuccessResponse(data any) error {

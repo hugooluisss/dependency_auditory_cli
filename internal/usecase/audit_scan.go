@@ -1,91 +1,35 @@
 package usecase
 
 import (
-	"path/filepath"
-
 	"github.com/hugooluisss/dependency_auditory_cli/internal/domain"
-	"github.com/hugooluisss/dependency_auditory_cli/internal/infra/filesystem"
-	"github.com/hugooluisss/dependency_auditory_cli/internal/parser"
+	"github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem"
 )
 
 type AuditScanUseCase struct {
-	reader             *filesystem.Reader
-	composerJSONParser *parser.ComposerJSONParser
-	composerLockParser *parser.ComposerLockParser
+	registry *ecosystem.Registry
 }
 
-func NewAuditScanUseCase(
-	reader *filesystem.Reader,
-	composerJSONParser *parser.ComposerJSONParser,
-	composerLockParser *parser.ComposerLockParser,
-) *AuditScanUseCase {
-	return &AuditScanUseCase{
-		reader:             reader,
-		composerJSONParser: composerJSONParser,
-		composerLockParser: composerLockParser,
-	}
+func NewAuditScanUseCase(registry *ecosystem.Registry) *AuditScanUseCase {
+	return &AuditScanUseCase{registry: registry}
 }
 
 func (u *AuditScanUseCase) Execute(projectPath string) (*domain.AuditScanResult, error) {
-	resolvedPath, err := u.reader.ResolvePath(projectPath)
+	scanner, _, err := u.registry.Detect(projectPath)
 	if err != nil {
 		return nil, err
 	}
 
-	composerJSONPath := filepath.Join(resolvedPath, "composer.json")
-	composerLockPath := filepath.Join(resolvedPath, "composer.lock")
-
-	hasComposerJSON, err := u.reader.FileExists(composerJSONPath)
-	if err != nil {
-		return nil, err
-	}
-	if !hasComposerJSON {
-		return nil, domain.NewAppError(
-			domain.CodeProjectNotSupported,
-			"No composer.json file was found in the target path",
-			nil,
-		)
-	}
-
-	rawComposerJSON, err := u.reader.ReadFile(composerJSONPath)
+	findings, err := scanner.BuildAuditFindings(projectPath)
 	if err != nil {
 		return nil, err
 	}
 
-	manifest, err := u.composerJSONParser.Parse(rawComposerJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	hasLockfile, err := u.reader.FileExists(composerLockPath)
-	if err != nil {
-		return nil, err
-	}
-
-	findings := u.composerJSONParser.BuildAuditFindings(manifest, hasLockfile)
-
-	if hasLockfile {
-		rawComposerLock, readErr := u.reader.ReadFile(composerLockPath)
-		if readErr != nil {
-			return nil, readErr
-		}
-
-		lock, parseErr := u.composerLockParser.Parse(rawComposerLock)
-		if parseErr != nil {
-			return nil, parseErr
-		}
-
-		findings = append(findings, u.composerLockParser.BuildAuditFindings(lock)...)
-	}
-
-	result := &domain.AuditScanResult{
+	return &domain.AuditScanResult{
 		ProjectPath: projectPath,
-		Ecosystem:   domain.EcosystemPHPComposer,
+		Ecosystem:   scanner.Name(),
 		Summary:     buildAuditSummary(findings),
 		Findings:    findings,
-	}
-
-	return result, nil
+	}, nil
 }
 
 func buildAuditSummary(findings []domain.AuditFinding) domain.AuditSummary {

@@ -56,8 +56,8 @@ Example JSON output:
     "project_path": ".",
     "ecosystem": "php-composer",
     "manifests": {
-      "composer_json": true,
-      "composer_lock": true
+      "composer.json": true,
+      "composer.lock": true
     }
   },
   "error": null
@@ -229,6 +229,13 @@ internal/
     detect_project.go
     list_direct_dependencies.go
     list_locked_dependencies.go
+  ecosystem/
+    scanner.go         ← Scanner interface + Registry
+    registry.go
+    composer/
+      scanner.go       ← PHP Composer implementation
+    # npm/             ← future
+    # gomod/           ← future
   parser/
     composer_json_parser.go
     composer_lock_parser.go

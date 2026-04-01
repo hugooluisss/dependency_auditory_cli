@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"github.com/hugooluisss/dependency_auditory_cli/internal/infra/filesystem"
-	"github.com/hugooluisss/dependency_auditory_cli/internal/parser"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/usecase"
 	"github.com/spf13/cobra"
 )
@@ -10,12 +8,9 @@ import (
 func newDepsLockedCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "locked",
-		Short: "List locked dependencies from composer.lock",
+		Short: "List locked dependencies from the project lockfile",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reader := filesystem.NewReader()
-			lockParser := parser.NewComposerLockParser()
-			uc := usecase.NewListLockedDependenciesUseCase(reader, lockParser)
-
+			uc := usecase.NewListLockedDependenciesUseCase(newRegistry())
 			result, err := uc.Execute(projectPath)
 			if err != nil {
 				return err
