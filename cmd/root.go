@@ -7,6 +7,8 @@ import (
 	"github.com/hugooluisss/dependency_auditory_cli/internal/domain"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem"
 	ecosystemcomposer "github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem/composer"
+	ecosystemgomod "github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem/gomod"
+	ecosystemnpm "github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem/npm"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/infra/filesystem"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/output"
 	"github.com/spf13/cobra"
@@ -20,7 +22,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:           "depguard",
-	Short:         "depguard inspects Composer dependencies as AI-ready JSON",
+	Short:         "depguard inspects dependencies as AI-ready JSON",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -58,8 +60,8 @@ func newRegistry() *ecosystem.Registry {
 	reader := filesystem.NewReader()
 	return ecosystem.NewRegistry(
 		ecosystemcomposer.NewScanner(reader),
-		// npm.NewScanner(reader),   // future
-		// gomod.NewScanner(reader), // future
+		ecosystemnpm.NewScanner(reader),
+		ecosystemgomod.NewScanner(reader),
 	)
 }
 

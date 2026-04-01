@@ -1,6 +1,6 @@
 # depguard
 
-`depguard` is a Go CLI focused on AI-consumable dependency metadata for PHP Composer projects.
+`depguard` is a Go CLI focused on AI-consumable dependency metadata for dependency ecosystems such as Composer, npm and Go Modules.
 
 ## Design goals
 
@@ -15,13 +15,15 @@
 Current ecosystem support:
 
 - PHP Composer (`composer.json`, `composer.lock`)
+- npm / Node.js (`package.json`, `package-lock.json`, `npm-shrinkwrap.json`)
+- Go Modules (`go.mod`, `go.sum`)
 
 Not included yet:
 
 - OSV or external vulnerability APIs
 - Reputation scoring
 - SARIF output
-- Additional ecosystems (npm, pip, go)
+- Additional ecosystems (pip and others)
 
 Included now:
 
@@ -41,7 +43,7 @@ Global flags available on all commands:
 - `--path` (default: `.`)
 - `--format` (default: `json`, currently only supported value)
 
-### Detect Composer project
+### Detect project ecosystem
 
 ```bash
 ./depguard detect --path . --format json
@@ -58,6 +60,41 @@ Example JSON output:
     "manifests": {
       "composer.json": true,
       "composer.lock": true
+    }
+  },
+  "error": null
+}
+```
+
+Example for npm:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "project_path": ".",
+    "ecosystem": "npm",
+    "manifests": {
+      "package.json": true,
+      "package-lock.json": true,
+      "npm-shrinkwrap.json": false
+    }
+  },
+  "error": null
+}
+```
+
+Example for Go Modules:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "project_path": ".",
+    "ecosystem": "go-mod",
+    "manifests": {
+      "go.mod": true,
+      "go.sum": true
     }
   },
   "error": null
@@ -130,7 +167,7 @@ Example JSON output:
 }
 ```
 
-If `composer.lock` is missing:
+If a lockfile is missing:
 
 ```json
 {
@@ -143,6 +180,32 @@ If `composer.lock` is missing:
 }
 ```
 
+npm lockfile error example:
+
+```json
+{
+  "ok": false,
+  "data": null,
+  "error": {
+    "code": "LOCKFILE_NOT_FOUND",
+    "message": "package-lock.json or npm-shrinkwrap.json file was not found"
+  }
+}
+```
+
+Go Modules lockfile error example:
+
+```json
+{
+  "ok": false,
+  "data": null,
+  "error": {
+    "code": "LOCKFILE_NOT_FOUND",
+    "message": "go.sum file was not found"
+  }
+}
+```
+
 ### Run local risk scan (offline)
 
 ```bash
@@ -151,11 +214,12 @@ If `composer.lock` is missing:
 
 What this command checks in the current MVP:
 
-- Missing `composer.lock`
-- Unsafe version constraints (`*`, `@dev`, `dev-master`)
-- Development branch constraints
-- Risky Composer script command patterns
-- Missing lock metadata (`license`, `source/dist reference`)
+- Missing lockfile (`composer.lock`, `package-lock.json`, or `npm-shrinkwrap.json` depending on ecosystem)
+- Unsafe version constraints (`*`, `latest`, `@dev`, `dev-master`)
+- Development branch or non-registry constraints
+- Risky script command patterns
+- Missing lock metadata (`license`, `source/dist reference` or `resolved/integrity`)
+- Go `replace` directives to local/remote non-registry targets
 
 Example JSON output:
 
@@ -234,11 +298,17 @@ internal/
     registry.go
     composer/
       scanner.go       ← PHP Composer implementation
-    # npm/             ← future
-    # gomod/           ← future
+    npm/
+      scanner.go       ← npm implementation (Angular/React/Node)
+    gomod/
+      scanner.go       ← Go Modules implementation
   parser/
     composer_json_parser.go
     composer_lock_parser.go
+    package_json_parser.go
+    package_lock_parser.go
+    go_mod_parser.go
+    go_sum_parser.go
   infra/
     filesystem/
       reader.go
