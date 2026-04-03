@@ -3,27 +3,33 @@
 package npm
 
 import (
+	"context"
 	"path/filepath"
+	"sort"
 
 	"github.com/hugooluisss/dependency_auditory_cli/internal/domain"
+	"github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/infra/filesystem"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/parser"
 )
 
 // Ecosystem is the stable identifier for npm projects used in JSON output.
 const Ecosystem = "npm"
+const osvEcosystem = "npm"
 
 type Scanner struct {
-	reader      *filesystem.Reader
-	packageJSON *parser.PackageJSONParser
-	packageLock *parser.PackageLockParser
+	reader              *filesystem.Reader
+	packageJSON         *parser.PackageJSONParser
+	packageLock         *parser.PackageLockParser
+	vulnerabilitySource ecosystem.VulnerabilitySource
 }
 
-func NewScanner(reader *filesystem.Reader) *Scanner {
+func NewScanner(reader *filesystem.Reader, vulnerabilitySource ecosystem.VulnerabilitySource) *Scanner {
 	return &Scanner{
-		reader:      reader,
-		packageJSON: parser.NewPackageJSONParser(),
-		packageLock: parser.NewPackageLockParser(),
+		reader:              reader,
+		packageJSON:         parser.NewPackageJSONParser(),
+		packageLock:         parser.NewPackageLockParser(),
+		vulnerabilitySource: vulnerabilitySource,
 	}
 }
 
@@ -137,10 +143,59 @@ func (s *Scanner) BuildAuditFindings(path string) ([]domain.AuditFinding, error)
 		if err != nil {
 			return nil, err
 		}
+		lockedDeps := s.packageLock.BuildLockedDependencies(lock)
 		findings = append(findings, s.packageLock.BuildAuditFindings(lock)...)
+
+		if s.vulnerabilitySource != nil {
+			remoteFindings, err := s.vulnerabilitySource.BuildAuditFindings(context.Background(), osvEcosystem, lockedDeps)
+			if err != nil {
+				findings = append(findings, domain.AuditFinding{
+					ID:         "VULNERABILITY_SOURCE_UNAVAILABLE",
+					Title:      "Remote vulnerability lookup unavailable",
+					Severity:   "info",
+					Category:   "scanner",
+					Message:    "OSV vulnerability lookup for npm lockfile failed; results include only local audit heuristics: " + err.Error(),
+					Confidence: "high",
+				})
+			} else {
+				findings = append(findings, remoteFindings...)
+			}
+		}
 	}
 
+	sortAuditFindings(findings)
 	return findings, nil
+}
+
+func sortAuditFindings(findings []domain.AuditFinding) {
+	severityRank := map[string]int{
+		"critical": 0,
+		"high":     1,
+		"medium":   2,
+		"low":      3,
+		"info":     4,
+	}
+
+	sort.SliceStable(findings, func(i, j int) bool {
+		leftRank, ok := severityRank[findings[i].Severity]
+		if !ok {
+			leftRank = 99
+		}
+		rightRank, ok := severityRank[findings[j].Severity]
+		if !ok {
+			rightRank = 99
+		}
+		if leftRank != rightRank {
+			return leftRank < rightRank
+		}
+		if findings[i].ID != findings[j].ID {
+			return findings[i].ID < findings[j].ID
+		}
+		if findings[i].Package != findings[j].Package {
+			return findings[i].Package < findings[j].Package
+		}
+		return findings[i].Scope < findings[j].Scope
+	})
 }
 
 func (s *Scanner) resolveLockPath(resolvedPath string) (string, bool, error) {

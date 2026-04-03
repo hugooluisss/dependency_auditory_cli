@@ -8,7 +8,7 @@ import (
 func newAuditScanCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "scan",
-		Short: "Scan for suspicious dependency risk signals (offline heuristics)",
+		Short: "Scan dependencies for risk signals and known vulnerabilities",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uc := usecase.NewAuditScanUseCase(newRegistry())
 			result, err := uc.Execute(projectPath)

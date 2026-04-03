@@ -1,27 +1,32 @@
 package python
 
 import (
+	"context"
 	"path/filepath"
 	"sort"
 
 	"github.com/hugooluisss/dependency_auditory_cli/internal/domain"
+	"github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/infra/filesystem"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/parser"
 )
 
 const Ecosystem = "python"
+const osvEcosystem = "PyPI"
 
 type Scanner struct {
-	reader           *filesystem.Reader
-	requirements     *parser.RequirementsParser
-	pythonLockParser *parser.PythonLockParser
+	reader              *filesystem.Reader
+	requirements        *parser.RequirementsParser
+	pythonLockParser    *parser.PythonLockParser
+	vulnerabilitySource ecosystem.VulnerabilitySource
 }
 
-func NewScanner(reader *filesystem.Reader) *Scanner {
+func NewScanner(reader *filesystem.Reader, vulnerabilitySource ecosystem.VulnerabilitySource) *Scanner {
 	return &Scanner{
-		reader:           reader,
-		requirements:     parser.NewRequirementsParser(),
-		pythonLockParser: parser.NewPythonLockParser(),
+		reader:              reader,
+		requirements:        parser.NewRequirementsParser(),
+		pythonLockParser:    parser.NewPythonLockParser(),
+		vulnerabilitySource: vulnerabilitySource,
 	}
 }
 
@@ -154,6 +159,22 @@ func (s *Scanner) BuildAuditFindings(path string) ([]domain.AuditFinding, error)
 			return nil, err
 		}
 		findings = append(findings, s.pythonLockParser.BuildAuditFindings(deps)...)
+
+		if s.vulnerabilitySource != nil {
+			remoteFindings, err := s.vulnerabilitySource.BuildAuditFindings(context.Background(), osvEcosystem, deps)
+			if err != nil {
+				findings = append(findings, domain.AuditFinding{
+					ID:         "VULNERABILITY_SOURCE_UNAVAILABLE",
+					Title:      "Remote vulnerability lookup unavailable",
+					Severity:   "info",
+					Category:   "scanner",
+					Message:    "OSV vulnerability lookup for Python lockfile failed; results include only local audit heuristics: " + err.Error(),
+					Confidence: "high",
+				})
+			} else {
+				findings = append(findings, remoteFindings...)
+			}
+		}
 
 		if lockPath == filepath.Join(resolved, "requirements.lock") {
 			findings = append(findings, lockCompletenessFindings(deps)...)

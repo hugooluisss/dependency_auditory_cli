@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
+	"time"
 
+	"github.com/hugooluisss/dependency_auditory_cli/internal/advisory/osv"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/domain"
 	"github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem"
 	ecosystemcomposer "github.com/hugooluisss/dependency_auditory_cli/internal/ecosystem/composer"
@@ -18,6 +21,7 @@ import (
 var (
 	projectPath  string
 	outputFormat string
+	offline      bool
 	jsonWriter   = output.NewJSONWriter(os.Stdout)
 )
 
@@ -45,6 +49,7 @@ func Execute() error {
 func init() {
 	rootCmd.PersistentFlags().StringVar(&projectPath, "path", ".", "Target project path")
 	rootCmd.PersistentFlags().StringVar(&outputFormat, "format", "json", "Output format")
+	rootCmd.PersistentFlags().BoolVar(&offline, "offline", false, "Disable remote vulnerability lookups")
 
 	rootCmd.AddCommand(newDetectCommand())
 	rootCmd.AddCommand(newDepsCommand())
@@ -59,11 +64,15 @@ func init() {
 //	gomod.NewScanner(reader)
 func newRegistry() *ecosystem.Registry {
 	reader := filesystem.NewReader()
+	var vulnerabilityClient ecosystem.VulnerabilitySource
+	if !offline {
+		vulnerabilityClient = osv.NewClient(&http.Client{Timeout: 12 * time.Second})
+	}
 	return ecosystem.NewRegistry(
-		ecosystemcomposer.NewScanner(reader),
-		ecosystemnpm.NewScanner(reader),
-		ecosystemgomod.NewScanner(reader),
-		ecosystempython.NewScanner(reader),
+		ecosystemcomposer.NewScanner(reader, vulnerabilityClient),
+		ecosystemnpm.NewScanner(reader, vulnerabilityClient),
+		ecosystemgomod.NewScanner(reader, vulnerabilityClient),
+		ecosystempython.NewScanner(reader, vulnerabilityClient),
 	)
 }
 

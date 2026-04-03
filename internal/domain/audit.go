@@ -10,14 +10,18 @@ type AuditSummary struct {
 }
 
 type AuditFinding struct {
-	ID         string `json:"id"`
-	Title      string `json:"title"`
-	Severity   string `json:"severity"`
-	Category   string `json:"category"`
-	Package    string `json:"package,omitempty"`
-	Scope      string `json:"scope,omitempty"`
-	Message    string `json:"message"`
-	Confidence string `json:"confidence"`
+	ID               string   `json:"id"`
+	Title            string   `json:"title"`
+	Severity         string   `json:"severity"`
+	Category         string   `json:"category"`
+	Package          string   `json:"package,omitempty"`
+	Scope            string   `json:"scope,omitempty"`
+	InstalledVersion string   `json:"installed_version,omitempty"`
+	Message          string   `json:"message"`
+	Confidence       string   `json:"confidence"`
+	Aliases          []string `json:"aliases,omitempty"`
+	References       []string `json:"references,omitempty"`
+	PublishedAt      string   `json:"published_at,omitempty"`
 }
 
 type AuditScanResult struct {

@@ -8,7 +8,7 @@
 - Structured results always on stdout.
 - Internal errors/logs only on stderr.
 - Small commands that are easy to compose.
-- Architecture prepared to expand `audit scan` with external sources later.
+- `audit scan` combines local heuristics with remote vulnerability sources when available.
 
 ## MVP scope
 
@@ -21,14 +21,14 @@ Current ecosystem support:
 
 Not included yet:
 
-- OSV or external vulnerability APIs
 - Reputation scoring
 - SARIF output
 - Additional ecosystems (Java/.NET/Ruby and others)
 
 Included now:
 
-- Local offline heuristic scan (`audit scan`) for suspicious risk signals
+- Local heuristic scan (`audit scan`) for suspicious risk signals
+- Remote OSV vulnerability lookup for locked dependencies in Composer, npm, Go Modules, and Python
 
 ## Installation
 
@@ -43,6 +43,7 @@ Global flags available on all commands:
 
 - `--path` (default: `.`)
 - `--format` (default: `json`, currently only supported value)
+- `--offline` (default: `false`, disables remote vulnerability lookup)
 
 ### Detect project ecosystem
 
@@ -240,7 +241,7 @@ Python lockfile error example:
 }
 ```
 
-### Run local risk scan (offline)
+### Run dependency risk scan
 
 ```bash
 ./depguard audit scan --path . --format json
@@ -253,6 +254,7 @@ What this command checks in the current MVP:
 - Development branch or non-registry constraints
 - Risky script command patterns
 - Missing lock metadata (`license`, `source/dist reference` or `resolved/integrity`)
+- Known vulnerabilities via OSV for locked dependencies (`composer.lock`, npm lockfiles, `go.sum`, `poetry.lock`, `Pipfile.lock`, `requirements.lock`)
 - Go `replace` directives to local/remote non-registry targets
 - Python requirements without constraints or referencing remote direct sources
 
@@ -265,31 +267,27 @@ Example JSON output:
     "project_path": ".",
     "ecosystem": "php-composer",
     "summary": {
-      "total": 2,
+      "total": 1,
       "critical": 0,
       "high": 1,
-      "medium": 1,
+      "medium": 0,
       "low": 0,
       "info": 0
     },
     "findings": [
       {
-        "id": "DEV_BRANCH_CONSTRAINT",
-        "title": "Dependency tracks a development branch",
+        "id": "GHSA-xxxx-yyyy-zzzz",
+        "title": "Known vulnerability affects installed package",
         "severity": "high",
-        "category": "supply-chain",
+        "category": "known-vulnerability",
         "package": "vendor/package",
-        "scope": "require",
-        "message": "Constraint \"dev-master\" references development builds.",
-        "confidence": "high"
-      },
-      {
-        "id": "MISSING_LOCKFILE",
-        "title": "composer.lock is missing",
-        "severity": "medium",
-        "category": "supply-chain",
-        "message": "The project does not include composer.lock, which reduces dependency reproducibility.",
-        "confidence": "high"
+        "scope": "packages",
+        "installed_version": "1.2.3",
+        "message": "Installed package \"vendor/package\" at version \"1.2.3\" is affected by GHSA-xxxx-yyyy-zzzz.",
+        "confidence": "high",
+        "aliases": ["CVE-2026-0001"],
+        "references": ["https://example.com/advisories/GHSA-xxxx-yyyy-zzzz"],
+        "published_at": "2026-04-01T00:00:00Z"
       }
     ]
   },
@@ -297,7 +295,7 @@ Example JSON output:
 }
 ```
 
-Note: this is an offline heuristic scan. It does not query CVE databases yet.
+Note: OSV lookup runs only when a lockfile/source with pinned versions is present. Use `--offline` to run heuristics only.
 
 ## Exit codes
 
